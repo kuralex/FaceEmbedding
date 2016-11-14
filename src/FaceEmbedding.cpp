@@ -36,25 +36,6 @@
 
 using namespace std;
 
-#ifdef _WIN32
-#pragma once
-#include <opencv2/core/version.hpp>
-
-#define CV_VERSION_ID CVAUX_STR(CV_MAJOR_VERSION) CVAUX_STR(CV_MINOR_VERSION) \
-  CVAUX_STR(CV_SUBMINOR_VERSION)
-
-#ifdef _DEBUG
-#define cvLIB(name) "opencv_" name CV_VERSION_ID "d"
-#else
-#define cvLIB(name) "opencv_" name CV_VERSION_ID
-#endif //_DEBUG
-
-#pragma comment( lib, cvLIB("core") )
-#pragma comment( lib, cvLIB("imgproc") )
-#pragma comment( lib, cvLIB("highgui") )
-
-#endif //_WIN32
-
 #if defined(__unix__) || defined(__APPLE__)
 
 #ifndef fopen_s
@@ -65,14 +46,11 @@ using namespace std;
 
 #endif //__unix
 
-#include <opencv/cv.h>
-#include <opencv/highgui.h>
+#include <opencv2/opencv.hpp>
 #include "face_identification.h"
 #include "recognizer.h"
 #include "face_detection.h"
 #include "face_alignment.h"
-
-#include "math_functions.h"
 
 #include <vector>
 #include <string>
@@ -81,12 +59,15 @@ using namespace std;
 
 using namespace seeta;
 
-//#ifdef _WIN32
+#ifdef _WIN32
+std::string FD_MODEL = "model/seeta_fd_frontal_v1.0.bin";
+std::string FA_MODEL = "model/seeta_fa_v1.1.bin";
+std::string FR_MODEL = "model/seeta_fr_v1.0.bin";
+#else
 std::string FD_MODEL = "../SeetaFaceEngine/FaceDetection/model/seeta_fd_frontal_v1.0.bin";
 std::string FA_MODEL = "../SeetaFaceEngine/FaceAlignment/model/seeta_fa_v1.1.bin";
 std::string FR_MODEL = "../SeetaFaceEngine/FaceIdentification/model/seeta_fr_v1.0.bin";
-//#else
-//#endif
+#endif
 
 void usage() {
   std::cout << "Usage: FaceEmbedding list_file.txt output_embedding_file.csv" << std::endl
@@ -150,7 +131,7 @@ int main(int argc, char* argv[]) {
       continue;
     }
     cv::Mat img_gray;
-    cv::cvtColor(img_color, img_gray, CV_BGR2GRAY);
+    cv::cvtColor(img_color, img_gray, cv::COLOR_BGR2GRAY);
     
     ImageData img_data_color(img_color.cols, img_color.rows, img_color.channels());
     img_data_color.data = img_color.data;    
@@ -202,7 +183,8 @@ int main(int argc, char* argv[]) {
       if (0 && !faceDetected) {
         cv::Mat view = img_color.clone();
         for (int i = 0; i < 5; i++) {
-          cv::circle(view, cv::Point(points[i].x, points[i].y), 3, cv::Scalar(255, 0, 0), 1);
+          cv::circle(view, cv::Point((int) points[i].x, (int)points[i].y), 3,
+			  cv::Scalar(255, 0, 0), 1);
         }
         cv::imshow("points", view);
         cv::imshow("crop", crop);
@@ -217,7 +199,11 @@ int main(int argc, char* argv[]) {
     
     face_recognizer.ExtractFeature(crop_data, fea);
     
-    float norm = sqrt(simd_dot(fea, fea, feaSize));
+	float norm = 0;
+	for (int i = 0; i < feaSize; i++) {
+		norm += fea[i] * fea[i];
+	}
+	norm = sqrt(norm);
     if (norm > 0) {
       float s = 1.f/norm;
       for (int i = 0; i < feaSize; i++) fea[i] *= s;
